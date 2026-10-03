@@ -68,3 +68,5 @@ Thumbs.db
 /Shots/
 /WebBuild/
 autotest_report.txt
+
+/server/node_modules/

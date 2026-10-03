@@ -82,9 +82,40 @@ namespace SkyHop
 
             BuildUI();
             ShowMenu();
+            Online.Create(this);
         }
 
         // ---------------------------------------------------------------- flow
+        public void ReturnToMenu() { ShowMenu(); }
+        public void HideMenu() { _menuG.SetActive(false); }
+        public void CommitNameFromUI() { CommitName(); }
+        public string PlayerName { get { return string.IsNullOrEmpty(_myName) ? "Player" : _myName; } }
+        public bool OnlineMode;
+        public System.Action<float> OnlineFinish;
+        public System.Action OnlineEsc;
+        public void ShowMessage(string m) { if (_bestT != null) _bestT.text = m; }
+        public void Toast(string t, Color c, float secs) { _toast = secs; _toastT.text = t; _toastT.color = c; }
+
+        public void BeginOnline(List<Player> remotes, int mySlot, float countdown)
+        {
+            CommitName();
+            ClearBots();
+            _finishOrder.Clear();
+            OnlineMode = true;
+            me.finished = false; me.cpIndex = 0;
+            me.Teleport(course.StartSlots[mySlot], 0f);
+            foreach (var r in remotes) racers.Add(r);
+            BeginCountdown();
+            _countdown = Mathf.Max(1f, countdown) + 0.99f;
+        }
+
+        public void EndOnlineRace()
+        {
+            OnlineMode = false;
+            ClearBots();
+            _hudG.SetActive(false); _resG.SetActive(false); _touchG.SetActive(false);
+        }
+
         private void ShowMenu()
         {
             ClearBots();
@@ -154,7 +185,11 @@ namespace SkyHop
             p.finished = true; p.finishTime = _raceT; _finishOrder.Add(p);
             p.controlsEnabled = false;
             Sfx.PlayAt("finish", p.transform.position, 0.6f);
-            if (p == me) OnMeFinished();
+            if (p == me)
+            {
+                if (OnlineMode) { state = St.Finished; if (OnlineFinish != null) OnlineFinish(_raceT); }
+                else OnMeFinished();
+            }
         }
 
         private void OnMeFinished()
@@ -187,6 +222,7 @@ namespace SkyHop
         private float Rank(Player p)
         {
             if (p.finished) return 1e6f - p.finishTime;
+            if (p.isRemote) return p.netProgress;
             return course.Progress(p.transform.position, p.cpIndex);
         }
 
@@ -224,7 +260,7 @@ namespace SkyHop
                     if (state == St.Racing) { _raceT += Time.deltaTime; _timerT.text = UIKit.TimeString(_raceT); }
                     foreach (var r in racers)
                     {
-                        if (r == null || r.finished || !r.Alive) continue;
+                        if (r == null || r.isRemote || r.finished || !r.Alive) continue;
                         if (course.TryCheckpoint(r) && r == me)
                         {
                             Sfx.Play("checkpoint");
@@ -266,6 +302,7 @@ namespace SkyHop
 
         private void TogglePause()
         {
+            if (OnlineMode) { if (OnlineEsc != null) OnlineEsc(); return; }
             _paused = !_paused;
             _pauseG.SetActive(_paused);
             Time.timeScale = _paused ? 0f : 1f;

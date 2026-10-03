@@ -184,6 +184,8 @@ namespace SkyHop
         }
 
         public float RemoteSpeed;
+        public float netProgress;
+        public void SetRemoteGrounded(bool g) { Grounded = g; }
 
         private void DoJump(float v, bool air)
         {
