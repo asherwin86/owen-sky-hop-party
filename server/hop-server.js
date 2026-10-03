@@ -79,7 +79,11 @@ function removePlayer(p) {
   if (room.phase === 'racing') checkAllFinished(room);
 }
 
-function startRace(room) {
+const COURSES = 4;
+function startRace(room, courseWanted) {
+  let course = 0;
+  if (room.isPublic) { room.courseNo = (room.courseNo === undefined ? Math.floor(Math.random() * COURSES) : room.courseNo + 1) % COURSES; course = room.courseNo; }
+  else if (Number.isInteger(courseWanted)) course = Math.max(0, Math.min(COURSES - 1, courseWanted));
   room.phase = 'racing';
   room.nextStart = 0;
   room.raceStart = Date.now() + COUNTDOWN_MS;
@@ -89,7 +93,7 @@ function startRace(room) {
   for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
   ids.forEach((id, i) => { const p = room.players.get(id); p.slot = i; p.finished = false; p.st = null; });
   broadcast(room, {
-    t: 'start', countdown: COUNTDOWN_MS / 1000,
+    t: 'start', countdown: COUNTDOWN_MS / 1000, course,
     slots: [...room.players.values()].map(p => ({ id: p.id, slot: p.slot })),
   });
   broadcast(room, roomInfo(room));
@@ -171,7 +175,7 @@ wss.on('connection', (ws) => {
         const room = p.room;
         if (!room || room.isPublic || room.hostId !== p.id || room.phase !== 'lobby') return;
         if (room.players.size < 2) { send(ws, { t: 'err', msg: 'Need at least 2 players to start.' }); return; }
-        startRace(room);
+        startRace(room, m.course);
         break;
       }
       case 'state': {

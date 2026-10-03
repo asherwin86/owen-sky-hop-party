@@ -4,7 +4,7 @@ using UnityEngine;
 namespace SkyHop
 {
     /// <summary>Builds the floating-island obstacle course at runtime.</summary>
-    public class Course : MonoBehaviour
+    public partial class Course : MonoBehaviour
     {
         public static Course I;
         public const float KillY = -35f;
@@ -23,20 +23,25 @@ namespace SkyHop
         private int _col;
         private static Mesh _cone;
 
-        private static readonly Color[] Pal =
+        private Color[] Pal;
+        private static readonly Color[] DefaultPal =
         {
             new Color(0.55f, 0.9f, 0.6f), new Color(1f, 0.68f, 0.82f), new Color(1f, 0.9f, 0.5f), new Color(0.76f, 0.66f, 1f),
             new Color(1f, 0.74f, 0.46f), new Color(0.5f, 0.82f, 1f), new Color(0.78f, 0.95f, 0.5f), new Color(1f, 0.62f, 0.58f)
         };
 
-        public static Course Build()
+        public static Course Build(int id = 0)
         {
             if (I != null) Destroy(I.gameObject);
+            id = Mathf.Clamp(id, 0, Count - 1);
             var go = new GameObject("Course");
             var c = go.AddComponent<Course>();
             I = c;
             c._root = go.transform;
-            c.Make();
+            c.Id = id; c.Name = Names[id];
+            c.Pal = Palette(id);
+            c.ApplyTheme();
+            if (id == 0) c.Make(); else c.MakeCourse(id);
             return c;
         }
 
@@ -294,7 +299,7 @@ namespace SkyHop
         private void Decor()
         {
             var rnd = new System.Random(7);
-            var white = Mats.Unlit(new Color(1f, 1f, 1f));
+            var white = Mats.Unlit(CloudCol);
             for (int i = 0; i < 46; i++)
             {
                 float zz = Mathf.Lerp(-40f, EndZ + 90f, (float)rnd.NextDouble());

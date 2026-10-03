@@ -70,7 +70,8 @@ namespace SkyHop
             sun.color = new Color(1f, 0.96f, 0.88f); sun.intensity = 1.15f;
             sun.transform.rotation = Quaternion.Euler(52f, -32f, 0f);
 
-            course = Course.Build();
+            CourseId = Mathf.Clamp(PlayerPrefs.GetInt("hop_course", 0), 0, Course.Count - 1);
+            course = Course.Build(CourseId);
             cam = CameraRig.Create();
             cam.cam.backgroundColor = RenderSettings.fogColor;
 
@@ -86,6 +87,36 @@ namespace SkyHop
         }
 
         // ---------------------------------------------------------------- flow
+        public int CourseId = -1;
+        private TMP_Text _courseT;
+        public void LoadCourse(int id)
+        {
+            id = Mathf.Clamp(id, 0, Course.Count - 1);
+            if (id == CourseId && course != null) return;
+            CourseId = id;
+            course = Course.Build(id);
+            if (cam != null && cam.cam != null) cam.cam.backgroundColor = RenderSettings.fogColor;
+            if (me != null) { me.Teleport(course.StartSlots[2], 0f); if (cam != null) cam.Snap(me); }
+        }
+        private void PickCourse(int delta)
+        {
+            if (state != St.Menu) return;
+            int id = (CourseId + delta + Course.Count) % Course.Count;
+            PlayerPrefs.SetInt("hop_course", id); PlayerPrefs.Save();
+            LoadCourse(id);
+            RefreshMenuText();
+            Sfx.Play("click");
+        }
+        private string BestKey() { return CourseId <= 0 ? "hop_best" : "hop_best" + CourseId; }
+        private void RefreshMenuText()
+        {
+            if (_courseT != null) _courseT.text = Course.Names[Mathf.Clamp(CourseId, 0, Course.Count - 1)];
+            if (_bestT != null && !OnlineMode)
+            {
+                float best = PlayerPrefs.GetFloat(BestKey(), 0f);
+                _bestT.text = best > 0f ? "Best time: " + UIKit.TimeString(best) : Course.Blurbs[Mathf.Clamp(CourseId, 0, Course.Count - 1)];
+            }
+        }
         public void ReturnToMenu() { ShowMenu(); }
         public void HideMenu() { _menuG.SetActive(false); }
         public void CommitNameFromUI() { CommitName(); }
@@ -96,8 +127,9 @@ namespace SkyHop
         public void ShowMessage(string m) { if (_bestT != null) _bestT.text = m; }
         public void Toast(string t, Color c, float secs) { _toast = secs; _toastT.text = t; _toastT.color = c; }
 
-        public void BeginOnline(List<Player> remotes, int mySlot, float countdown)
+        public void BeginOnline(List<Player> remotes, int mySlot, float countdown, int courseId = 0)
         {
+            LoadCourse(courseId);
             CommitName();
             ClearBots();
             _finishOrder.Clear();
@@ -124,8 +156,8 @@ namespace SkyHop
             me.finished = false; me.cpIndex = 0; me.controlsEnabled = false;
             me.Teleport(course.StartSlots[2], 0f);
             cam.target = me; cam.MenuMode = true;
-            float best = PlayerPrefs.GetFloat("hop_best", 0f);
-            _bestT.text = best > 0f ? "Best time: " + UIKit.TimeString(best) : "Race 3 bots to the flag!";
+            LoadCourse(PlayerPrefs.GetInt("hop_course", 0));
+            RefreshMenuText();
             Sfx.Music(true);
         }
 
@@ -166,6 +198,7 @@ namespace SkyHop
             cam.MenuMode = false; cam.Snap(me);
             _timerT.text = UIKit.TimeString(0f);
             _lastBeep = 4;
+            Toast(Course.Names[Mathf.Clamp(CourseId, 0, Course.Count - 1)].ToUpperInvariant(), Color.white, 2.6f);
         }
 
         private int _lastBeep;
@@ -198,9 +231,9 @@ namespace SkyHop
             int place = _finishOrder.IndexOf(me) + 1;
             Sfx.Play("win");
             Fx.Confetti(course.FinishPos);
-            float best = PlayerPrefs.GetFloat("hop_best", 0f);
+            float best = PlayerPrefs.GetFloat(BestKey(), 0f);
             bool newBest = best <= 0f || me.finishTime < best;
-            if (newBest) { PlayerPrefs.SetFloat("hop_best", me.finishTime); PlayerPrefs.Save(); }
+            if (newBest) { PlayerPrefs.SetFloat(BestKey(), me.finishTime); PlayerPrefs.Save(); }
             _resTitle.text = place == 1 ? "YOU WIN!" : UIKit.Ordinal(place) + " PLACE";
             _resTitle.color = place == 1 ? new Color(1f, 0.9f, 0.3f) : Color.white;
             var sb = new StringBuilder();
@@ -336,6 +369,10 @@ namespace SkyHop
             var online = UIKit.Btn(_menuG.transform, "ONLINE", UIKit.B, new Vector2(140f, 105f), new Vector2(250f, 70f), new Color(0.35f, 0.5f, 0.95f), () => { Sfx.Play("click"); OnlineClicked(); }, 38f);
             _bestT = UIKit.Label(_menuG.transform, "", 28f, UIKit.B, new Vector2(0f, 48f), new Vector2(700f, 40f), TextAlignmentOptions.Center, new Color(1f, 0.95f, 0.6f));
             UIKit.Label(_menuG.transform, "Move: WASD / arrows    Jump: Space (twice for a double jump)    Look: right-drag or Q / E", 22f, UIKit.B, new Vector2(0f, 12f), new Vector2(1200f, 34f), TextAlignmentOptions.Center, new Color(1f, 1f, 1f, 0.8f));
+            UIKit.Btn(_menuG.transform, "<", UIKit.T, new Vector2(-250f, -222f), new Vector2(70f, 64f), new Color(0.2f, 0.25f, 0.5f, 0.85f), () => PickCourse(-1), 40f);
+            UIKit.Btn(_menuG.transform, ">", UIKit.T, new Vector2(250f, -222f), new Vector2(70f, 64f), new Color(0.2f, 0.25f, 0.5f, 0.85f), () => PickCourse(1), 40f);
+            _courseT = UIKit.Label(_menuG.transform, Course.Names[Mathf.Clamp(CourseId, 0, Course.Count - 1)], 40f, UIKit.T, new Vector2(0f, -222f), new Vector2(400f, 64f), TextAlignmentOptions.Center, new Color(1f, 1f, 1f));
+            _courseT.fontStyle = FontStyles.Bold;
             var snd = UIKit.Btn(_menuG.transform, Sfx.Muted ? "SOUND: OFF" : "SOUND: ON", UIKit.TR, new Vector2(-20f, -20f), new Vector2(210f, 46f), new Color(0.2f, 0.25f, 0.5f, 0.85f), ToggleSound, 22f);
             _soundT = snd.GetComponentInChildren<TMP_Text>();
 

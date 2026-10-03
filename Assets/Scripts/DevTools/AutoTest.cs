@@ -21,6 +21,7 @@ namespace SkyHop
             if (!_started)
             {
                 _started = true;
+                gf.LoadCourse(PlayerPrefs.GetInt("hop_autocourse", 0));
                 var typeStart = typeof(GameFlow).GetMethod("StartSolo", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 typeStart.Invoke(gf, null);
                 // replace local control with a bot for the player

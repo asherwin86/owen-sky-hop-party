@@ -23,7 +23,7 @@ namespace SkyHop
         [System.Serializable] private class Msg
         {
             public string t, code, phase, msg, name;
-            public int id, hostId, winner;
+            public int id, hostId, winner, course;
             public bool isPublic, first;
             public float countdown, time;
             public float next = -1f;
@@ -34,6 +34,7 @@ namespace SkyHop
         [System.Serializable] private class NameOut { public string t; public string name; public string code; }
         [System.Serializable] private class IdOut { public string t; public int id; }
         [System.Serializable] private class TOut { public string t; }
+        [System.Serializable] private class StartOut { public string t = "start"; public int course; }
 
         private class Remote
         {
@@ -109,7 +110,7 @@ namespace SkyHop
                 _rowKick[i] = UIKit.Btn(row.transform, "X", UIKit.C, new Vector2(300f, y), new Vector2(44f, 36f), new Color(0.85f, 0.35f, 0.35f), () => KickRow(idx), 22f);
             }
             _lobbyStatus = UIKit.Label(_lobbyP.transform, "", 28f, UIKit.C, new Vector2(0f, -195f), new Vector2(700f, 44f), TextAlignmentOptions.Center, new Color(1f, 1f, 1f, 0.92f));
-            _startBtn = UIKit.Btn(_lobbyP.transform, "START RACE", UIKit.C, new Vector2(-150f, -265f), new Vector2(300f, 64f), new Color(0.3f, 0.75f, 0.35f), () => { Sfx.Play("click"); Send(new TOut { t = "start" }); }, 30f);
+            _startBtn = UIKit.Btn(_lobbyP.transform, "START RACE", UIKit.C, new Vector2(-150f, -265f), new Vector2(300f, 64f), new Color(0.3f, 0.75f, 0.35f), () => { Sfx.Play("click"); Send(new StartOut { course = _gf.CourseId }); }, 30f);
             UIKit.Btn(_lobbyP.transform, "LEAVE", UIKit.C, new Vector2(170f, -265f), new Vector2(260f, 64f), new Color(0.85f, 0.4f, 0.4f), () => { Sfx.Play("click"); Leave(); }, 30f);
 
             _resP = UIKit.Group(ui, "OnlineResults");
@@ -304,6 +305,7 @@ namespace SkyHop
         // ------------------------------------------------------------ race
         private void OnStart(Msg m)
         {
+            _gf.LoadCourse(m.course);
             HideAll();
             ClearRemotes();
             _finishLines.Clear();
@@ -324,7 +326,7 @@ namespace SkyHop
             if (mine != null) _gf.me.SetColor(GameFlow.Colors[mine.color % GameFlow.Colors.Length]);
             _myJump = 0; _raceLive = false; _sendT = 0f;
             _gf.me.OnJump = p => _myJump++;
-            _gf.BeginOnline(remotes, Mathf.Clamp(mySlot, 0, 7), m.countdown);
+            _gf.BeginOnline(remotes, Mathf.Clamp(mySlot, 0, 7), m.countdown, m.course);
             mode = Mode.Race;
         }
 
