@@ -70,3 +70,5 @@ Thumbs.db
 autotest_report.txt
 
 /server/node_modules/
+/WinBuild/
+/SkyHopParty-Windows.zip
